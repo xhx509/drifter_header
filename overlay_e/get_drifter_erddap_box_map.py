@@ -1,0 +1,103 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Aug 27 10:14:02 2014
+
+@author: hxu
+this progress extracts drifter data(coordinates) based on time range, geographic range or drifter id, then plot them.
+The ouput file will be in same folder as this program. 
+input values: time period,gbox(maxlon, minlon,maxlat,minlat),or time period and id
+function uses: getobs_drift_byrange,getobs_drift_byidrange,colors,getobs_drift_byid
+output : a plot file to show drifter track.
+
+"""
+import  pygmaps
+import datetime as dt
+import sys
+import os
+import pytz, pylab
+import numpy as np
+import matplotlib.pyplot as plt
+from hx import getobs_drift_byrange,getobs_drift_byid,point_in_poly
+ops=os.defpath
+pydir='../'
+sys.path.append(pydir)
+#################Input values#############################################
+input_time=[dt.datetime(1980,1,1,0,0,0,0,pytz.UTC),dt.datetime(2014,10,1,0,0,0,0,pytz.UTC)] # start time and end time
+gbox=[-70.035594,-70.597883,42.766619,42.093197] #  maxlon, minlon,maxlat,minlat
+id=[] # id list, if you are not clear dedicated id, let id=[]
+#'125450842''125450841'
+#↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑Input values↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑#
+
+def hexcolors(n):
+    """Compute a list of distinct colors, each of which is represented as an #RRGGBB value."""
+    """It's useful for less than 100 numbers"""
+    if pow(n,float(1)/3)%1==0.0:
+        n+=1 
+	  #make sure number we get is more than we need.
+    rgbcolors=[]
+    x=pow(n,float(1)/3)
+    a=int(x)
+    b=int(x)
+    c=int(x)
+    if a*b*c<=n:
+       a+=1
+    if a*b*c<n:
+       b+=1
+    if a*b*c<n:
+       c+=1
+    for i in range(a):
+       r=254/(a)*(i)
+       for j in range(b):
+          s=254/(b)*(j)
+          for k in range(c):
+             t=254/(c)*(k)
+             color=r,s,t
+             rgbcolors.append(color)
+    hexcolor=[]
+    for i in rgbcolors:
+        hexcolor.append('#%02x%02x%02x' % i)         
+    return hexcolor
+polygon=[(gbox[0],gbox[2]),(gbox[0],gbox[3]),(gbox[1],gbox[3]),(gbox[1],gbox[2])] #set polygon
+if id==[]:    
+    time,ids,lats,lons=getobs_drift_byrange(gbox,input_time)
+    mymap = pygmaps.maps(np.mean(lats), np.mean(lons), 12)  #set center point of the map
+    id=list(set(ids))
+    colors=hexcolors(len(id))  #get hex colors,like '00FF00'
+    for k in range(len(id)):
+        time,ids,lat,lon=getobs_drift_byid(id[k],input_time)  # get data by id
+        for z in range(len(lat)):  # make plotting drifter start in gbox
+            inside=point_in_poly(lon[z],lat[z],polygon) 
+            if inside == True:
+              break
+        if z>1: 
+          lat=lat[0:z-1]
+          lon=lon[0:z-1]
+        
+          path=[] #set path, point 
+          for i in range(len(lat)):
+            path.append((lat[i],lon[i]))
+            #mymap.addpoint(lat[i],lon[i],colors[k])
+          mymap.addradpoint(lat[0],lon[0], 500, colors[k]) #plot them
+          mymap.addpath(path,colors[k])
+else:
+    colors=hexcolors(len(id))#get hex colors,like '00FF00'
+    for m in range(len(id)):
+        time,ids,lat,lon=getobs_drift_byid(id[m],input_time) # get data by id
+        for z in range(len(lat)):  # make plotting drifter start in gbox
+            inside=point_in_poly(lon[z],lat[z],polygon)
+            if inside == True:
+              break
+        lat=lat[z:]
+        lon=lon[z:]
+        
+        path=[] #set path, point to plot
+        for i in range(len(lat)):
+          path.append((lat[i],lon[i]))
+          mymap.addpoint(lat[i],lon[i],'black')
+        mymap.addradpoint(lat[0],lon[0], 295, "red")
+        mymap.addradpoint(lat[-1],lon[-1], 295, "blue")
+        mymap.addpath(path,colors[k])#00FF00
+    
+ranges=[(gbox[2],gbox[0]),(gbox[3],gbox[0]),(gbox[3],gbox[1]),(gbox[2],gbox[1]),(gbox[2],gbox[0])] #plot range you gave
+mymap.addpath(ranges,'red')#00FF00    
+mymap.draw('./mymap.html')
